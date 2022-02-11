@@ -1,0 +1,116 @@
+import pygame as pg
+from sys import exit
+vec = pg.math.Vector2
+
+#settings
+width = 1200
+height = 1000
+fric = -0.1
+platforms_list = [(0,height - 20,width,20),(300,900,400,20)]
+
+#gets key input
+def get_input():
+    global left
+    global right
+    left = pg.key.get_pressed()[pg.K_LEFT] or pg.key.get_pressed()[pg.K_a]
+    right = pg.key.get_pressed()[pg.K_RIGHT] or pg.key.get_pressed()[pg.K_d]
+
+class Player(pg.sprite.Sprite):
+    def __init__(self,game):
+        pg.sprite.Sprite.__init__(self)
+        self.image = pg.Surface((30,30))
+        self.image.fill("White")
+        self.rect = self.image.get_rect()
+        self.rect.center = (400,500)
+        self.pos = vec(width/2,height/2)
+        self.vel = vec(0,0)
+        self.acc = vec(0,0)
+        self.game = game
+
+    def jump(self):
+        self.rect.x += 1
+        hits = pg.sprite.spritecollide(self,self.game.platforms,False)
+        self.rect.x -= 1
+        if hits:
+            self.vel.y = -10
+
+    def update(self):
+        get_input()
+        self.acc = vec(0,0.5)
+        if left: self.acc.x = -0.8
+        if right: self.acc.x = 0.8
+
+        #applies friction and updates vel,pos
+        self.acc.x += fric*self.vel.x
+        self.vel += self.acc
+        self.pos += self.vel
+        if self.pos.x > width:
+            self.pos.x = 0
+        if self.pos.x < 0:
+            self.pos.x = width
+        self.rect.midbottom = self.pos
+
+class Platform(pg.sprite.Sprite):
+    def __init__(self,x,y,w,h):
+        pg.sprite.Sprite.__init__(self)
+        self.image = pg.Surface((w,h))
+        self.image.fill("Grey")
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+
+class Game:
+    def __init__(self):
+        pg.init()
+        self.screen = pg.display.set_mode((width,height))
+        pg.display.set_caption("Jumper")
+        self.clock = pg.time.Clock()
+        self.running = True
+
+    def new(self):
+        self.all_sprites = pg.sprite.Group()
+        self.platforms = pg.sprite.Group()
+        self.player = Player(self)
+        for platform in platforms_list:
+            current_platform = Platform(*platform)
+            self.all_sprites.add(current_platform)
+            self.platforms.add(current_platform)
+        self.all_sprites.add(self.player)
+        self.run()
+
+    def run(self):
+        self.playing = True
+        while self.playing:
+            self.clock.tick(60)
+            self.events()
+            self.update()
+            self.draw()
+
+    def update(self):
+        self.all_sprites.update()
+        hits = pg.sprite.spritecollide(self.player,self.platforms,False)
+        if hits:
+            if self.player.vel.y > 0:
+                self.player.pos.y = hits[0].rect.top
+                self.player.vel.y = 0
+            if self.player.vel.y < 0:
+                self.player.pos.y = hits[0].rect.bottom + 30
+                self.player.vel.y = 0
+
+    def events(self):
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                pg.quit()
+                exit()
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_UP or event.key == pg.K_w:
+                    self.player.jump()
+
+    def draw(self):
+        self.screen.fill("Black")
+        self.all_sprites.draw(self.screen)
+        pg.display.flip()
+
+game = Game()
+while game.running:
+    game.new()
